@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>2019</title>
+
+    <script src="../assets/jquery.min.js"></script>
+    <script src="../assets/echarts.min.js"></script>
+    <script src="../assets/swiper.min.js"></script>
+
+    <link href="../assets/swiper.min.css" rel="stylesheet">
+</head>
+
+<body>
+    <div class="head">
+        <img src="head.jpg" id="headImg">
+        <!-- -->
+    </div>
+    <div class="board">
+        <div class="inner">
+            <table id='board-table' width="100%">
+                <tbody id="tbody">
+                </tbody>
+            </table>
+        </div>
+        <!-- swiper -->
+        <div class="swiper-container">
+            <div class="swiper-wrapper">
+            </div>
+            <!-- Add Arrows -->
+            <div class="swiper-button-next"></div>
+            <div class="swiper-button-prev"></div>
+        </div>
+
+        <div class="map">
+            <div class="title"><text id='title'>山东确诊人数分布地图</text><text></text></div>
+            <div class="toggleMap"><span onclick="toggleMap()">确诊</span>
+                <span id="cureReturn" onclick="toggleMap1()">治愈</span>
+                <span id="return" onclick="toggleMap2()">回到省区地图</span>
+            </div>
+            <div id="mapText">
+                <div class="modifyTime"></div>
+                <div class="sdData"></div>
+                <div class="sdDataText"> <span>确诊</span> <span>疑似</span> <span>死亡</span> <span>治愈</span></div>
+            </div>
+
+
+            <!-- 山东地图数据 -->
+            <div id="map" style="width: 700px;height:500px;"></div>
+            <div id="map1" style="width: 700px;height:500px;"></div>
+            <div id="map2" style="width: 700px;height:500px;"></div>
+        </div>
+        <div class="table">
+            <table width="50%" border="1" id="msgTable">
+                <caption id="caption"><strong>山东各地疫情表格</strong></caption>
+                <tr id="tableColor">
+                    <th scope="col">地区</th>
+                    <th scope="col">现存确诊</th>
+                    <th scope="col">累计确诊</th>
+                    <th scope="col">死亡</th>
+                    <th scope="col">治愈</th>
+                </tr>
+                <!-- 山东汇总数据 -->
+                <tbody id="sdTr">
+
+                </tbody>
+
+                <tbody id="msgTbody">
+                </tbody>
+            </table>
+        </div>
+        <script type="text/javascript">
+            // 基于准备好的dom，初始化echarts实例
+            var CureData = []//治愈人数数据
+            // console.log(allData)//山东数据
+            // console.log(cities)//山东各市数据，不包含山东
+            $("#map1").hide()
+            $("#map2").hide()
+            $('#return').hide()
+            function toggleMap2() {
+
+                $("#cureReturn").show()
+                $("#return").hide()
+                $("#map").show()
+                $("#map2").hide()
+                $('#title').text('山东确诊人数分布地图')
+            }
+            function toggleMap() {
+                $("#map").show()
+                $("#map1").hide()
+                $("#map2").hide()
+                $('#title').text('山东确诊人数分布地图')
+            }
+            var myChart = echarts.init(document.getElementById('map'));
+            $.get('../assets/shandong.json', function (geoJson) {
+                // 获取山东省数据
+                $.get('http://localhost:8080/getData', function (data) {
+
+                    var allData = JSON.parse(data)
+                    allData = allData.data.listData
+                    console.log(typeof allData, allData)
+
+                    for (let index = 0; index < allData.length; index++) {
+                        if (allData[index].provinceName == "山东省") {//山东数据
+                            allData = allData[index]
+                        }
+                    }
+
+                    const time = allData.modifyTime
+                    const confirmedCount = allData.confirmedCount//确诊
+                    const suspectedCount = allData.suspectedCount//疑似
+                    const curedCount = allData.curedCount//治愈
+                    const deadCount = allData.deadCount//死亡
+                    // console.log(allData)
+                    function timestampToTime(time) {//日期转换
+                        var date = new Date(time);//时间戳为10位需*1000，时间戳为13位的话不需乘1000
+                        var Y = date.getFullYear() + '年'
+                        var M = (date.getMonth() + 1 < 10 ? '0' + (date.getMonth() + 1) : date.getMonth() + 1) + '月';
+                        var D = date.getDate() >= 10 ? date.getDate() + '日' : "0" + date.getDate() + '日'
+                        var h = date.getHours() >= 10 ? date.getHours() + ':' : '0' + date.getHours() + ':'
+                        var m = date.getSeconds() >= 10 ? date.getSeconds() + ":" : "0" + date.getSeconds() + ':'
+                        var s = date.getSeconds() >= 10 ? date.getSeconds() : "0" + date.getSeconds()
+                        return Y + M + D + h + m + s
+                    }
+                    var modifyTime = timestampToTime(time)
+                    $('.modifyTime')[0].innerHTML = `截止到${modifyTime}山东疫情情况如下`
+                    $('.sdData')[0].innerHTML = `&nbsp;${confirmedCount}&nbsp;&nbsp;&nbsp;${suspectedCount}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${deadCount}&nbsp;&nbsp;&nbsp;&nbsp;${curedCount} `
+                    let statistics = JSON.parse(data).data.statistics//swiper 图片
+                    let imgs = statistics.dailyPics
+                    let imgSrc = ''
+                    for (let index = 0; index < imgs.length; index++) {
+                        let img = `
+                      <div class="swiper-slide"><img src=${imgs[index]}></div>
+                      `
+                        imgSrc += img
+                    }
+                    $('.swiper-wrapper').html(imgSrc)
+                    let { remark1, remark2, remark3, note1, note2, note3 } = statistics//依次是易感人群，潜伏期，宿主，病毒，传染源，传播途径
+                    let arr = Object.values({ remark1, remark2, remark3, note1, note2, note3 })//将对象的值转为数组
+                    let str = ''
+                    for (let index = 0; index < arr.length; index++) {
+                        let tbody = `
+                         <tr>
+                            <td >${arr[index]}</td>
+                         </tr>
+                     `
+                        str += tbody
+                    }
+                    $('#tbody').html(str)
+                    let cities = ''
+                    let province = JSON.parse(data).data.areaList
+                    for (let index = 0; index < province.length; index++) {
+                        if (province[index].provinceName == "山东省") {
+                            cities = province[index].cities
+                        }
+                    }
+                    let myData = []
+                    // let newMyData = []
+                    let sdCities = []
+                    for (let index = 0; index < cities.length; index++) {
+                        sdCities.push(cities[index].cityName)
+                        sdCities.find((value) => {   //因为数据中目前东营市为0感染，所以无东营数据
+                            if (value === "东营市") {//所以通过判断数据中是否包含东营，如果不包含说明东营至今感染为0
+                                return
+                            } else {                 //需插入东营数据
+                                myData.push({ name: '东营市', value: 0 })
+                                CureData.push({ name: '东营市', value: 0 })
+                            }
+                        })
+                        CureData.push({//动态添加数组数据
+                            name: `${cities[index].cityName}市`,
+                            value: `${cities[index].curedCount}`
+                        })
+                        myData.push({//动态添加数组数据
+                            name: `${cities[index].cityName}市`,
+                            value: `${cities[index].confirmedCount}`
+                        })
+                    }
+                    // console.log(allData)//山东数据
+                    // console.log(cities)//山东各市数据，不包含山东
+                    MyData = myData
+                    //渲染表格msgTbody
+                    let cityStr = ''
+                    let sdTr = `
+                             <tr>
+                              <th scope="col">${allData.provinceName}</th>
+                              <th scope="col">${allData.currentConfirmedCount}</th>
+                              <th scope="col">${allData.confirmedCount}</th>
+                              <th scope="col">${allData.deadCount}</th>
+                              <th scope="col">${allData.curedCount}</th>
+                            </tr>
+                        `
+                    $('#sdTr').html(sdTr)
+                    for (let index = 0; index < cities.length; index++) {
+                        let msgTbody = `
+                           <tr>
+                              <td scope="col">${cities[index].cityName}</td>
+                              <td scope="col">${cities[index].currentConfirmedCount}</td>
+                              <td scope="col">${cities[index].confirmedCount}</td>
+                              <td scope="col">${cities[index].deadCount}</td>
+                              <td scope="col">${cities[index].curedCount}</td>
+                            </tr>
+                           `
+                        cityStr += msgTbody
+                    }
+                    $('#msgTbody').html(cityStr)
+                    //创建地图
+                    echarts.registerMap('shandong', geoJson, {});
+                    var option = {
+                        tooltip: {
+                            backgroundColor: 'rgba(255,0,0,0.6)',            //标题背景色
+                            borderColor: "#ccc",                        //边框颜色
+                            trigger: 'item',
+                            // formatter: '{a}{b}<br/>确诊人数:{c}'//提示框浮层内容格式器，
+                            //支持字符串模板和回调函数两种形式,模板变量有 {a}, {b}，{c}，{d}，{e}，分别表示系列名，数据名，数据值等
+                            formatter: function loadData(result) {//回调函数，参数params具体格式参加官方API
+                                //params.name：当前地市名称。params.value：你传入的json数据与当前地市匹配的一项。
+                                //params.data.value:你传入的json数据与当前地市匹配的一项中'value'对应的数据
+                                return result.name + '<br />确诊人数:' + result.value;
+                            }
+
+                        },
+                        visualMap: {
+                            min: 0,
+                            max: 60,
+                            text: ['确诊人数'],
+                            left: 'right',
+                            realtime: false,
+                            calculable: true,
+                            inRange: {
+                                color: ['white', 'yellow', 'orangered']
+                            }
+                        },
+                        series: [
+                            {
+                                name: '山东',
+                                type: 'map',
+                                mapType: 'shandong',
+                                aspectScale: 0.85,  //地图长度比
+                                left: 60,//地图距离上下左右空白距离
+                                right: 20,
+                                center: [119.00012848828123, 36.43282593237894],//中心位置经纬度
+                                label: {
+                                    normal: {
+                                        show: true,
+                                        textStyle: {
+                                            color: '#000',
+                                            textAlign: 'right',
+                                            fontSize: '26px',
+                                        }
+                                    },
+                                    emphasis: {
+                                        show: true,
+                                        textStyle: {
+                                            color: '#333'
+                                        }
+                                    }
+                                },
+
+                                // data.namecities.cityName,
+                                // data.value=cities.confirmedCount
+                                data: myData//传入数据
+
+                                //原始数据
+                                // data: [
+                                //     { name: '济宁市', value: 30 },
+                                //     { name: '济南市', value: 40 },
+                                //     { name: '东营市', value: 0 },
+                                //     { name: '聊城市', value: 17 },
+                                //     { name: '淄博市', value: 18 },
+                                //     { name: '青岛市', value: 10 },
+                                //     { name: '滨州市', value: 15 },
+                                //     { name: '泰安市', value: 21 },
+                                //     { name: '菏泽市', value: 33 },
+                                //     { name: '临沂市', value: 10 },
+                                //     { name: '枣庄市', value: 20 },
+                                //     { name: '潍坊市', value: 50 },
+                                //     { name: '烟台市', value: 30 },
+                                //     { name: '德州市', value: 13 },
+                                //     { name: '日照市', value: 20 },
+                                //     { name: '威海市', value: 30 },
+                                //     { name: '原莱芜市', value: 40 }
+                                // ]
+                            }
+                        ]
+                    };
+                    myChart.on('click', function (result) {
+                        $('#return').show()
+                        $('#cureReturn').hide()
+                        $('#title').text(`${result.name}确诊人数地图`)
+                        console.log(result.name)
+                        console.log(result.value)
+                        $("#map2").show()
+                        $("#map").hide()
+                        var myChart = echarts.init(document.getElementById('map2'));
+                        let url = `../assets/${result.name}.json`
+
+                        $.get(url, function (geoJson) {
+                            echarts.registerMap('jining', geoJson, {});
+                            var option = {
+                                tooltip: {
+                                    backgroundColor: 'rgba(255,0,0,0.6)',            //标题背景色
+                                    borderColor: "#ccc",                        //边框颜色
+                                    trigger: 'item',
+                                    // formatter: '{a}{b}<br/>确诊人数:{c}'//提示框浮层内容格式器，
+                                    //支持字符串模板和回调函数两种形式,模板变量有 {a}, {b}，{c}，{d}，{e}，分别表示系列名，数据名，数据值等
+                                    formatter: function loadData(result) {//回调函数，参数params具体格式参加官方API
+                                        //params.name：当前地市名称。params.value：你传入的json数据与当前地市匹配的一项。
+                                        //params.data.value:你传入的json数据与当前地市匹配的一项中'value'对应的数据
+                                        return result.name + '<br />确诊人数:' + result.value;
+                                    }
+
+                                },
+                                visualMap: {
+                                    min: 0,
+                                    max: 60,
+                                    text: ['确诊人数'],
+                                    left: 'right',
+                                    realtime: false,
+                                    calculable: true,
+                                    inRange: {
+                                        color: ['white', 'yellow', 'orangered']
+                                    }
+                                },
+                                series: [
+                                    {
+                                        name: '济宁市',
+                                        type: 'map',
+                                        mapType: 'jining',
+                                        aspectScale: 0.85,  //地图长度比
+                                        left: 60,//地图距离上下左右空白距离
+                                        right: 20,
+                                        zoom: 0.4,
+                                        // center: [119.00012848828123, 36.43282593237894],//中心位置经纬度
+                                        label: {
+                                            normal: {
+                                                show: true,
+                                                textStyle: {
+                                                    color: '#000',
+                                                    textAlign: 'right',
+                                                    fontSize: '26px',
+                                                }
+                                            },
+                                            emphasis: {
+                                                show: true,
+                                                textStyle: {
+                                                    color: '#333'
+                                                }
+                                            }
+                                        },
+
+                                        // data.namecities.cityName,
+                                        // data.value=cities.confirmedCount
+                                        // data: [result.name,result.value]//传入数据
+
+                                        // 原始数据
+                                        data: [
+                                            { name: result.name, value: result.value },
+
+                                        ]
+                                    }
+                                ]
+                            };
+                            myChart.setOption(option);
+                        })
+                    })
+                    myChart.setOption(option);
+                    // });
+                })
+
+            })
+            function toggleMap1() {
+                console.log(MyData)
+                // document.getElementById('map').innerHTML = ''
+                // $("#map1").css("height", "500px")
+                $("#map").hide()
+                $("#map1").show()
+                $('#title').text('山东治愈人数分布地图')
+                var myChart = echarts.init(document.getElementById('map1'));
+                $.get('../assets/shandong.json', function (geoJson) {
+                    //创建地图
+
+
+                    echarts.registerMap('shandong', geoJson, {});
+                    var option = {
+                        tooltip: {
+                            backgroundColor: 'rgba(0,255,0,0.6)',            //标题背景色
+                            borderColor: "#ccc",                        //边框颜色
+                            trigger: 'item',
+                            formatter: '{a}{b}<br/>治愈人数:{c}'//提示框浮层内容格式器，支持字符串模板和回调函数两种形式,模板变量有 {a}, {b}，{c}，{d}，{e}，分别表示系列名，数据名，数据值等
+                        },
+                        visualMap: {
+                            min: 0,
+                            max: 30,
+                            text: ['治愈人数'],
+                            left: 'right',
+                            realtime: false,
+                            calculable: true,
+                            inRange: {
+                                color: ['white', 'lightgreen', 'green']
+                            }
+                        },
+                        series: [
+                            {
+                                name: '山东',
+                                type: 'map',
+                                mapType: 'shandong',
+                                aspectScale: 0.85,  //地图长度比
+                                left: 50,//地图距离上下左右空白距离
+                                right: 20,
+                                center: [119.00012848828123, 36.43282593237894],//中心位置经纬度
+                                label: {
+                                    normal: {
+                                        show: true,
+                                        textStyle: {
+                                            color: '#000',
+                                            textAlign: 'right',
+                                            fontSize: '26px',
+                                        }
+                                    },
+                                    emphasis: {
+                                        show: true,
+                                        textStyle: {
+                                            color: '#333'
+                                        }
+                                    }
+                                },
+
+                                // data.namecities.cityName,
+                                // data.value=cities.confirmedCount
+                                data: CureData//传入数据
+
+                                //原始数据
+                                // data: [
+                                //     { name: '济宁市', value: 30 },
+                                //     { name: '济南市', value: 40 },
+                                //     { name: '东营市', value: 0 },
+                                //     { name: '聊城市', value: 17 },
+                                //     { name: '淄博市', value: 18 },
+                                //     { name: '青岛市', value: 10 },
+                                //     { name: '滨州市', value: 15 },
+                                //     { name: '泰安市', value: 21 },
+                                //     { name: '菏泽市', value: 33 },
+                                //     { name: '临沂市', value: 10 },
+                                //     { name: '枣庄市', value: 20 },
+                                //     { name: '潍坊市', value: 50 },
+                                //     { name: '烟台市', value: 30 },
+                                //     { name: '德州市', value: 13 },
+                                //     { name: '日照市', value: 20 },
+                                //     { name: '威海市', value: 30 },
+                                //     { name: '原莱芜市', value: 40 }
+                                // ]
+                            }
+                        ]
+                    };
+                    myChart.setOption(option);
+                    // });
+
+                })
+            }
+            window.onload = function () {
+                var swiper = new Swiper('.swiper-container', {//初始化swiper要挨着</body>标签
+                    //以便保证页面加载完在初始化swiper
+                    observer: true,//修改swiper自己或子元素时，自动初始化swiper
+                    observeParents: true,//修改swiper的父元素时，自动初始化swiper
+                    lazy: true,
+                    pagination: {
+                        el: '.swiper-pagination',
+                        clickable: true,
+                    },
+                    navigation: {
+                        nextEl: '.swiper-button-next',
+                        prevEl: '.swiper-button-prev',
+                    },
+
+                });
+            }
+
+
+
+
+
+        </script>
+</body>
+<style>
+    * {
+        user-select:none; 
+        padding: 0;
+        margin: 0;
+    }
+
+    body {
+        position: relative;
+    }
+
+    .head {
+        height: 250px;
+        width: 100%;
+        overflow: hidden;
+
+    }
+
+    /* .china{
+    position: absolute;
+    top:25px;
+    left: 80px;
+    z-index: 100;
+    width: 300px;
+    height: 200px;
+    background-color: cadetblue;
+} */
+    #headImg {
+        width: 100%;
+        height: 250px;
+        background-repeat: no-repeat;
+        background-size: contain;
+    }
+
+    /* 表格数据 */
+    .board {
+        height: 130px;
+        margin: 20px auto;
+        margin-bottom: 10px;
+        width: 98%;
+    }
+
+    #board-table {
+        vertical-align: text-bottom;
+        border: 0;
+        border-spacing: 0;
+        border-collapse: collapse;
+    }
+
+    #msgTable {
+        margin: 0px auto;
+        border: 0;
+        border-spacing: 0;
+        border-collapse: collapse;
+        margin-bottom: 50px;
+    }
+
+    #caption {
+        width: 100%;
+        text-align: center;
+        margin: 0px auto;
+        margin-bottom: 20px;
+    }
+
+    #msgTbody {
+        text-align: center;
+    }
+
+    #tableColor th:nth-child(1) {
+        background-color: chocolate;
+        color: white;
+        border: 1px;
+    }
+
+    #tableColor th:nth-child(2) {
+        background-color: red;
+        color: white;
+        border: 1px;
+    }
+
+    #tableColor th:nth-child(3) {
+        background-color: rosybrown;
+        color: white;
+        border: 1px;
+    }
+
+    #tableColor th:nth-child(4) {
+        background-color: black;
+        color: white;
+        border: 1px;
+    }
+
+    #tableColor th:nth-child(5) {
+        background-color: lightgreen;
+        color: white;
+        border: 1px;
+    }
+
+    /* 地图 */
+    .sdDataText span:nth-child(1) {
+        color: red;
+
+    }
+
+    .sdDataText span:nth-child(2) {
+        color: rosybrown;
+    }
+
+    .sdDataText span:nth-child(3) {
+        color: black;
+    }
+
+    .sdDataText span:nth-child(4) {
+        color: greenyellow;
+    }
+
+    #mapText {
+        margin-left: 30px;
+        margin-top: 20px;
+    }
+
+    .toggleMap {
+        margin-left: 900px;
+        font-size: 20px;
+    }
+
+    .toggleMap span:nth-child(1) {
+        border-radius: 10%;
+        background-color: red;
+        margin-left: 20px;
+        cursor: pointer;
+        color: white;
+    }
+
+    .toggleMap span:nth-child(2) {
+        border-radius: 10%;
+        background-color: lightgreen;
+        margin-left: 20px;
+        cursor: pointer;
+        color: white;
+    }
+
+    .map {
+        height: 650px;
+        margin: 50px auto;
+        width: 98%;
+        border-bottom: 1px solid black;
+    }
+
+    .map .title {
+        width: 20%;
+        height: 50px;
+        text-align: center;
+        font-size: 25px;
+        line-height: 50px;
+        margin: -10px auto;
+
+    }
+
+    #map {
+        margin: 0px auto;
+    }
+
+    #map1 {
+        margin: 0px auto;
+    }
+
+    #map2 {
+
+        margin: 0px auto;
+    }
+
+    #return {
+        border-radius: 10%;
+        background-color: lightgreen;
+        margin-left: 20px;
+        cursor: pointer;
+        color: white;
+    }
+
+    /* swiper */
+    .swiper-container {
+        width: 100%;
+        height: 400px;
+    }
+
+    .swiper-slide {
+        text-align: center;
+        font-size: 18px;
+        background: #fff;
+
+        /* Center slide text vertically */
+        display: -webkit-box;
+        display: -ms-flexbox;
+        display: -webkit-flex;
+        display: flex;
+        -webkit-box-pack: center;
+        -ms-flex-pack: center;
+        -webkit-justify-content: center;
+        justify-content: center;
+        -webkit-box-align: center;
+        -ms-flex-align: center;
+        -webkit-align-items: center;
+        align-items: center;
+    }
+
+    .swiper-slide img {
+        width: 800px;
+        height: 300px;
+    }
+
+    .swiper-button-next {
+        cursor: pointer;
+        margin-right: -0px;
+    }
+
+    .swiper-button-prev {
+        cursor: pointer;
+        margin-left: -0px;
+    }
+</style>
+
+</html>
